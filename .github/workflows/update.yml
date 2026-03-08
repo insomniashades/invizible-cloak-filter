@@ -1,0 +1,33 @@
+name: Update Hagezi Normal Cloak
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Jalan otomatis tiap hari Minggu jam 00:00 UTC
+  workflow_dispatch: # Munculin tombol manual biar lu bisa eksekusi kapan aja
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Tarik dan Racik Hagezi Normal
+        run: |
+          # 1. Sedot list murni Hagezi Normal dari sumber aslinya
+          curl -sL https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt -o raw.txt
+          
+          # 2. Filter komentar (#) dan baris kosong, lalu format jadi "[domain] 0.0.0.0"
+          grep -v '^#' raw.txt | grep -v '^\s*$' | awk '{print $1" 0.0.0.0"}' > cloaking.txt
+          
+          # 3. Bersih-bersih file mentah
+          rm raw.txt
+
+      - name: Simpan ke Repo
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add cloaking.txt
+          # Kalau nggak ada perubahan/update dari Hagezi, batalkan proses tanpa error
+          git commit -m "Auto-update Hagezi Normal ke format Cloaking" || exit 0
+          git push
+          
