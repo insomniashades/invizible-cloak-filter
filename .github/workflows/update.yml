@@ -1,33 +1,135 @@
-name: Update Hagezi Normal Cloak
+name: Update Cloaking Rules
 
 on:
   schedule:
-    - cron: '0 0 * * 0' 
-  workflow_dispatch: 
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-      - name: Tarik dan Racik Hagezi Normal
+      - name: Tarik Hagezi Normal + OISD Basic
         run: |
-          # 1. Sedot list murni Hagezi Normal (nama filenya multi.txt). 
-          # Parameter --fail bikin proses stop kalau URL salah/mati.
-          curl -sL --fail "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/multi.txt" -o raw.txt
-          
-          # 2. Filter komentar (#), hapus baris kosong & format Windows (\r), lalu format jadi "[domain] 0.0.0.0"
-          grep -v '^#' raw.txt | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print $1" 0.0.0.0"}' > cloaking.txt
-          
-          # 3. Bersihkan file mentah
-          rm raw.txt
+          # Hagezi Normal — moderat, tidak blok CDN/static umum
+          curl -sL --fail \
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt" \
+            -o hagezi.txt
+
+          # OISD Basic — well-curated, jarang false positive
+          curl -sL --fail \
+            "https://raw.githubusercontent.com/nicehash/oisdbasic/main/dnsmasq.txt" \
+            -o oisd.txt || \
+          curl -sL --fail \
+            "https://oisd.nl/downloads/basic/dnsmasq" \
+            -o oisd.txt
+
+          # Merge, filter komentar, deduplikasi, format cloaking
+          cat hagezi.txt oisd.txt \
+            | grep -v '^#' \
+            | grep -v '^\s*$' \
+            | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' \
+            | sort -u \
+            > cloaking_merged.txt
+
+          # Whitelist — domain IDX & broker yg sering false positive
+          cat <<'EOF' > whitelist.txt
+          # IDX & static
+          idx.co.id
+          www.idx.co.id
+          static.idx.co.id
+          assets.idx.co.id
+
+          # Bank BCA
+          bca.co.id
+          klikbca.com
+          m.klikbca.com
+          api.klikbca.com
+          mybca.bca.co.id
+          ocw.bca.co.id
+
+          # Bank Jago
+          jago.com
+          www.jago.com
+          api.jago.com
+          app.jago.com
+          cdn.jago.com
+
+          # GoPay & Gojek
+          gojek.com
+          www.gojek.com
+          api.gojek.com
+          gopay.co.id
+          www.gopay.co.id
+          api.gopay.co.id
+          gopay-id.com
+          goapi.go-jek.com
+          api.go-jek.com
+          static.gojek.com
+          cdn.gojek.com
+          pa.gojek.com
+
+          # Stockbit
+          stockbit.com
+          www.stockbit.com
+          api.stockbit.com
+          static.stockbit.com
+          cdn.stockbit.com
+          app.stockbit.com
+          stream.stockbit.com
+
+          # Bibit
+          bibit.id
+          www.bibit.id
+          api.bibit.id
+          cdn.bibit.id
+          static.bibit.id
+          app.bibit.id
+
+          # Tokopedia
+          tokopedia.com
+          www.tokopedia.com
+          api.tokopedia.com
+          ta.tokopedia.com
+          images.tokopedia.net
+          tokopedia.net
+          tokopedia-static.net
+
+          # Mi Shop / Xiaomi
+          mishop.id
+          www.mishop.id
+          mi.com
+          global.mi.com
+          buy.mi.com
+          shop.mi.com
+          static.mi.com
+          i01.appmifile.com
+          i02.appmifile.com
+
+          # Common CDN yang sering kena false positive
+          jsdelivr.net
+          unpkg.com
+          cdnjs.cloudflare.com
+          akamaized.net
+          fastly.net
+          cloudfront.net
+          EOF
+          # Apply whitelist — hapus domain yang ada di whitelist
+          grep -v '^\s*#' whitelist.txt | grep -v '^\s*$' | while read domain; do
+            sed -i "/^${domain} /d" cloaking_merged.txt
+          done
+
+          mv cloaking_merged.txt cloaking.txt
+          rm -f hagezi.txt oisd.txt
+
+          echo "Total rules: $(wc -l < cloaking.txt)"
 
       - name: Simpan ke Repo
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
-          git commit -m "Auto-update Hagezi Normal ke format Cloaking" || exit 0
+          git commit -m "Auto-update: Hagezi Normal + OISD Basic $(date +'%Y-%m-%d')" || exit 0
           git push
-          
