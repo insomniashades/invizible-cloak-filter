@@ -1,4 +1,4 @@
-name: Update Cloaking Rules (Hagezi Pro)
+name: Update Cloaking Rules (Hagezi Pro Wildcard)
 
 on:
   schedule:
@@ -15,24 +15,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tarik Hagezi Pro
+      - name: Tarik Hagezi Pro (Native Wildcard)
         run: |
-          echo "Menarik list Hagezi Pro dari jalur utama (GitHub Raw)..."
-          # Jalur 1: Ambil langsung dari repo raw Hagezi
-          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt" -o hagezi_pro.txt
+          echo "Menarik list Hagezi Pro versi Wildcard asli..."
+          # Jalur 1: Ambil langsung dari folder 'wildcard' di repo Hagezi
+          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro.txt" -o hagezi_pro.txt
 
-          # Pengecekan Logis: Kalau filenya error 404, kosong, atau isinya kedikitan (di bawah 1000 baris), ganti jalur!
+          # Pengecekan Logis: Kalau filenya error 404, kosong, atau isinya kedikitan, ganti jalur!
           if grep -iq "^404" hagezi_pro.txt || [ ! -s hagezi_pro.txt ] || [ $(wc -l < hagezi_pro.txt) -lt 1000 ]; then
-            echo "Jalur utama bermasalah. Beralih ke jalur cadangan (CDN jsDelivr)..."
-            # Jalur 2: Sedot via CDN jsDelivr sebagai backup
-            curl -sL "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/domains/pro.txt" -o hagezi_pro.txt
+            echo "Jalur utama bermasalah. Beralih ke CDN jsDelivr..."
+            curl -sL "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/pro.txt" -o hagezi_pro.txt
           fi
 
           echo "Total baris mentahan yang berhasil ditarik: $(wc -l < hagezi_pro.txt)"
 
-          # Filter bersih-bersih dan format jadi "*.domain.com 0.0.0.0"
-          # Logika AWK: Buang baris komentar (#), hapus enter gaib, bersihin *. bawaan (biar gak dobel), lalu tempel *. dan 0.0.0.0
-          cat hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); sub(/^\*\./, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
+          # Filter dan format
+          # Karena Hagezi udah ngasih format "*.domain.com", kita tinggal buang baris komentar dan nambahin " 0.0.0.0" di belakangnya
+          cat hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print $1" 0.0.0.0"}' | sort -u > cloaking.txt
 
           # Buang file mentahan
           rm -f hagezi_pro.txt
@@ -48,7 +47,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
-            git commit -m "Auto-update: Hagezi Pro Cloaking $(date +'%Y-%m-%d')"
+            git commit -m "Auto-update: Hagezi Pro Wildcard Cloaking $(date +'%Y-%m-%d')"
             git push
           fi
           
