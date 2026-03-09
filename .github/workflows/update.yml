@@ -5,13 +5,73 @@ on:
     - cron: '0 0 * * 0'
   workflow_dispatch:
 
-# Tambahan wajib: Izin supaya bot bisa nge-push hasil update ke repo
 permissions:
   contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Kita simpan daftar whitelist di dalam environment variable biar rapi
+    env:
+      WHITELIST: |
+        idx.co.id
+        www.idx.co.id
+        static.idx.co.id
+        assets.idx.co.id
+        bca.co.id
+        klikbca.com
+        m.klikbca.com
+        api.klikbca.com
+        mybca.bca.co.id
+        jago.com
+        www.jago.com
+        api.jago.com
+        app.jago.com
+        cdn.jago.com
+        gojek.com
+        www.gojek.com
+        api.gojek.com
+        gopay.co.id
+        www.gopay.co.id
+        api.gopay.co.id
+        goapi.go-jek.com
+        api.go-jek.com
+        static.gojek.com
+        cdn.gojek.com
+        stockbit.com
+        www.stockbit.com
+        api.stockbit.com
+        static.stockbit.com
+        cdn.stockbit.com
+        app.stockbit.com
+        stream.stockbit.com
+        bibit.id
+        www.bibit.id
+        api.bibit.id
+        cdn.bibit.id
+        static.bibit.id
+        tokopedia.com
+        www.tokopedia.com
+        api.tokopedia.com
+        images.tokopedia.net
+        tokopedia.net
+        tokopedia-static.net
+        mishop.id
+        www.mishop.id
+        mi.com
+        global.mi.com
+        buy.mi.com
+        shop.mi.com
+        ipot.co.id
+        www.ipot.co.id
+        ksei.co.id
+        jsdelivr.net
+        unpkg.com
+        cdnjs.cloudflare.com
+        akamaized.net
+        fastly.net
+        cloudfront.net
+
     steps:
       - uses: actions/checkout@v4
 
@@ -26,71 +86,11 @@ jobs:
           # Bersihkan file dan format jadi "domain 0.0.0.0"
           cat hagezi_normal.txt hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' | sort -u > cloaking_merged.txt
 
-          # Bikin whitelist (Pastikan mulai dari idx.co.id sampai EOF nempel di ujung kiri tanpa spasi)
-          cat << 'EOF' > whitelist.txt
-          idx.co.id
-          www.idx.co.id
-          static.idx.co.id
-          assets.idx.co.id
-          bca.co.id
-          klikbca.com
-          m.klikbca.com
-          api.klikbca.com
-          mybca.bca.co.id
-          jago.com
-          www.jago.com
-          api.jago.com
-          app.jago.com
-          cdn.jago.com
-          gojek.com
-          www.gojek.com
-          api.gojek.com
-          gopay.co.id
-          www.gopay.co.id
-          api.gopay.co.id
-          goapi.go-jek.com
-          api.go-jek.com
-          static.gojek.com
-          cdn.gojek.com
-          stockbit.com
-          www.stockbit.com
-          api.stockbit.com
-          static.stockbit.com
-          cdn.stockbit.com
-          app.stockbit.com
-          stream.stockbit.com
-          bibit.id
-          www.bibit.id
-          api.bibit.id
-          cdn.bibit.id
-          static.bibit.id
-          tokopedia.com
-          www.tokopedia.com
-          api.tokopedia.com
-          images.tokopedia.net
-          tokopedia.net
-          tokopedia-static.net
-          mishop.id
-          www.mishop.id
-          mi.com
-          global.mi.com
-          buy.mi.com
-          shop.mi.com
-          ipot.co.id
-          www.ipot.co.id
-          ksei.co.id
-          jsdelivr.net
-          unpkg.com
-          cdnjs.cloudflare.com
-          akamaized.net
-          fastly.net
-          cloudfront.net
-EOF
+          # Cetak whitelist dari env ke file txt (sangat aman, tidak rawan error spasi)
+          echo "$WHITELIST" > whitelist.txt
 
-          # Logika AWK yang lebih cepat: 
-          # Baca whitelist dulu, simpan di memori, lalu print baris di cloaking_merged yang domainnya tidak ada di whitelist.
-          # AWK akan jalan hitungan detik dibanding sed di dalam loop yang bisa bermenit-menit.
-          awk '{ gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 == "") next } NR==FNR { white[$1]=1; next } !($1 in white)' whitelist.txt cloaking_merged.txt > cloaking.txt
+          # AWK untuk filter whitelist (super cepat)
+          awk 'NR==FNR { if($1!="") white[$1]=1; next } !($1 in white)' whitelist.txt cloaking_merged.txt > cloaking.txt
 
           rm -f hagezi_normal.txt hagezi_pro.txt whitelist.txt cloaking_merged.txt
 
@@ -102,7 +102,7 @@ EOF
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
           
-          # Pengecekan aman, kalau nggak ada perubahan dari sebelumnya, nggak perlu ngotot commit
+          # Cek ada perubahan atau tidak sebelum push
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
