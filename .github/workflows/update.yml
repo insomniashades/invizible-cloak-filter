@@ -17,16 +17,24 @@ jobs:
 
       - name: Tarik OISD Small (Wildcard Asterisk)
         run: |
-          # Langsung sedot versi "raw domains" dari OISD Small
-          curl -sL "https://small.oisd.nl/domains" -o oisd_small.txt
+          echo "Menarik list OISD Small dari jalur utama..."
+          # Jalur 1: Official OISD (pakai User-Agent browser biar gak dikira bot jahat)
+          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://small.oisd.nl/domainswild" -o oisd_small.txt
 
-          echo "Total baris mentahan dari OISD Small: $(wc -l < oisd_small.txt)"
+          # Pengecekan Logis: Kalau isinya kata "error", atau filenya kosong, atau isinya dikit banget (biasanya HTML nyasar), ganti jalur!
+          if grep -iq "^error$" oisd_small.txt || [ ! -s oisd_small.txt ] || [ $(wc -l < oisd_small.txt) -lt 100 ]; then
+            echo "Jalur utama diblokir/error. Beralih narik langsung dari dapur repository OISD..."
+            # Jalur 2: Sedot dari file raw di GitHub aslinya developer OISD
+            curl -sL "https://raw.githubusercontent.com/sjhgvr/oisd/main/domainswild2_small.txt" -o oisd_small.txt
+          fi
+
+          echo "Total baris mentahan yang berhasil ditarik: $(wc -l < oisd_small.txt)"
 
           # Filter bersih-bersih dan format jadi "*.domain.com 0.0.0.0"
-          # Logika: Hapus komentar/baris kosong, buang karakter gaib, tambah *. di depan dan 0.0.0.0 di belakang
-          cat oisd_small.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
+          # Logika AWK: Hapus enter gaib, bersihin kalau ada *. bawaan (biar gak dobel), lalu tempel *. dan 0.0.0.0
+          cat oisd_small.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); sub(/^\*\./, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
 
-          # Buang file mentahan biar bersih
+          # Buang file mentahan
           rm -f oisd_small.txt
 
           echo "Total rules siap pakai: $(wc -l < cloaking.txt)"
@@ -37,7 +45,6 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
           
-          # Cek ada perubahan atau tidak sebelum push (Biar log commit nggak nyampah)
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
