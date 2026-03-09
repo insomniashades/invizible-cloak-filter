@@ -15,19 +15,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tarik Hagezi Multi Light (Wildcard Asterisk)
+      - name: Tarik OISD Small (Wildcard Asterisk)
         run: |
-          # Langsung sedot versi Wildcard Light
-          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/light.txt" -o hagezi_light.txt
+          # Langsung sedot versi "raw domains" dari OISD Small
+          curl -sL "https://small.oisd.nl/domains" -o oisd_small.txt
 
-          echo "Total baris dari Hagezi Wildcard Light: $(wc -l < hagezi_light.txt)"
+          echo "Total baris mentahan dari OISD Small: $(wc -l < oisd_small.txt)"
 
-          # Filter bersih-bersih dan format jadi "*.domain 0.0.0.0"
-          # (Hapus spasi kosong/komentar, lalu tempel 0.0.0.0 di belakangnya)
-          cat hagezi_light.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print $1" 0.0.0.0"}' | sort -u > cloaking.txt
+          # Filter bersih-bersih dan format jadi "*.domain.com 0.0.0.0"
+          # Logika: Hapus komentar/baris kosong, buang karakter gaib, tambah *. di depan dan 0.0.0.0 di belakang
+          cat oisd_small.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
 
           # Buang file mentahan biar bersih
-          rm -f hagezi_light.txt
+          rm -f oisd_small.txt
 
           echo "Total rules siap pakai: $(wc -l < cloaking.txt)"
 
@@ -37,11 +37,11 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
           
-          # Cek ada perubahan atau tidak sebelum push
+          # Cek ada perubahan atau tidak sebelum push (Biar log commit nggak nyampah)
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
-            git commit -m "Auto-update: Hagezi Multi Light Wildcard $(date +'%Y-%m-%d')"
+            git commit -m "Auto-update: OISD Small Wildcard $(date +'%Y-%m-%d')"
             git push
           fi
           
