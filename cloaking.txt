@@ -109943,7 +109943,6 @@ cloudflarehk.com 0.0.0.0
 cloudflarehks.com 0.0.0.0
 cloudflareinc.demdex.net 0.0.0.0
 cloudflareinc.tt.omtrdc.net 0.0.0.0
-cloudflareinsights.com 0.0.0.0
 cloudflarekr.com 0.0.0.0
 cloudflarekrs.com 0.0.0.0
 cloudflaresa.com 0.0.0.0
@@ -287960,7 +287959,6 @@ static.clicktripz.com 0.0.0.0
 static.clix.ir 0.0.0.0
 static.clmbtech.com 0.0.0.0
 static.cloud-suites.xyz 0.0.0.0
-static.cloudflareinsights.com 0.0.0.0
 static.cmp.datasign.co 0.0.0.0
 static.cocubes.com 0.0.0.0
 static.comitiumanalytics.com 0.0.0.0
