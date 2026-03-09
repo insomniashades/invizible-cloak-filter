@@ -16,6 +16,9 @@ jobs:
       WHITELIST: |
         idx.co.id
         www.idx.co.id
+        cloudflareinsights.com
+        static.cloudflareinsights.com
+
         static.idx.co.id
         assets.idx.co.id
         bca.co.id
