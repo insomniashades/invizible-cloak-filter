@@ -1,4 +1,4 @@
-name: Update Cloaking Rules
+name: Update Cloaking Rules (Hagezi Pro)
 
 on:
   schedule:
@@ -15,27 +15,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tarik OISD Small (Wildcard Asterisk)
+      - name: Tarik Hagezi Pro
         run: |
-          echo "Menarik list OISD Small dari jalur utama..."
-          # Jalur 1: Official OISD (pakai User-Agent browser biar gak dikira bot jahat)
-          curl -sL -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" "https://small.oisd.nl/domainswild" -o oisd_small.txt
+          echo "Menarik list Hagezi Pro dari jalur utama (GitHub Raw)..."
+          # Jalur 1: Ambil langsung dari repo raw Hagezi
+          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt" -o hagezi_pro.txt
 
-          # Pengecekan Logis: Kalau isinya kata "error", atau filenya kosong, atau isinya dikit banget (biasanya HTML nyasar), ganti jalur!
-          if grep -iq "^error$" oisd_small.txt || [ ! -s oisd_small.txt ] || [ $(wc -l < oisd_small.txt) -lt 100 ]; then
-            echo "Jalur utama diblokir/error. Beralih narik langsung dari dapur repository OISD..."
-            # Jalur 2: Sedot dari file raw di GitHub aslinya developer OISD
-            curl -sL "https://raw.githubusercontent.com/sjhgvr/oisd/main/domainswild2_small.txt" -o oisd_small.txt
+          # Pengecekan Logis: Kalau filenya error 404, kosong, atau isinya kedikitan (di bawah 1000 baris), ganti jalur!
+          if grep -iq "^404" hagezi_pro.txt || [ ! -s hagezi_pro.txt ] || [ $(wc -l < hagezi_pro.txt) -lt 1000 ]; then
+            echo "Jalur utama bermasalah. Beralih ke jalur cadangan (CDN jsDelivr)..."
+            # Jalur 2: Sedot via CDN jsDelivr sebagai backup
+            curl -sL "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/domains/pro.txt" -o hagezi_pro.txt
           fi
 
-          echo "Total baris mentahan yang berhasil ditarik: $(wc -l < oisd_small.txt)"
+          echo "Total baris mentahan yang berhasil ditarik: $(wc -l < hagezi_pro.txt)"
 
           # Filter bersih-bersih dan format jadi "*.domain.com 0.0.0.0"
-          # Logika AWK: Hapus enter gaib, bersihin kalau ada *. bawaan (biar gak dobel), lalu tempel *. dan 0.0.0.0
-          cat oisd_small.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); sub(/^\*\./, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
+          # Logika AWK: Buang baris komentar (#), hapus enter gaib, bersihin *. bawaan (biar gak dobel), lalu tempel *. dan 0.0.0.0
+          cat hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); sub(/^\*\./, ""); print "*."$1" 0.0.0.0"}' | sort -u > cloaking.txt
 
           # Buang file mentahan
-          rm -f oisd_small.txt
+          rm -f hagezi_pro.txt
 
           echo "Total rules siap pakai: $(wc -l < cloaking.txt)"
 
@@ -48,7 +48,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
-            git commit -m "Auto-update: OISD Small Wildcard $(date +'%Y-%m-%d')"
+            git commit -m "Auto-update: Hagezi Pro Cloaking $(date +'%Y-%m-%d')"
             git push
           fi
           
