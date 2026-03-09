@@ -11,93 +11,25 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Kita simpan daftar whitelist di dalam environment variable biar rapi
-    env:
-      WHITELIST: |
-        idx.co.id
-        www.idx.co.id
-        cloudflareinsights.com
-        static.cloudflareinsights.com
-
-        static.idx.co.id
-        assets.idx.co.id
-        bca.co.id
-        klikbca.com
-        m.klikbca.com
-        api.klikbca.com
-        mybca.bca.co.id
-        jago.com
-        www.jago.com
-        api.jago.com
-        app.jago.com
-        cdn.jago.com
-        gojek.com
-        www.gojek.com
-        api.gojek.com
-        gopay.co.id
-        www.gopay.co.id
-        api.gopay.co.id
-        goapi.go-jek.com
-        api.go-jek.com
-        static.gojek.com
-        cdn.gojek.com
-        stockbit.com
-        www.stockbit.com
-        api.stockbit.com
-        static.stockbit.com
-        cdn.stockbit.com
-        app.stockbit.com
-        stream.stockbit.com
-        bibit.id
-        www.bibit.id
-        api.bibit.id
-        cdn.bibit.id
-        static.bibit.id
-        tokopedia.com
-        www.tokopedia.com
-        api.tokopedia.com
-        images.tokopedia.net
-        tokopedia.net
-        tokopedia-static.net
-        mishop.id
-        www.mishop.id
-        mi.com
-        global.mi.com
-        buy.mi.com
-        shop.mi.com
-        ipot.co.id
-        www.ipot.co.id
-        ksei.co.id
-        jsdelivr.net
-        unpkg.com
-        cdnjs.cloudflare.com
-        akamaized.net
-        fastly.net
-        cloudfront.net
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tarik Hagezi Normal + Pro
+      - name: Tarik Hagezi Multi Light (Wildcard Asterisk)
         run: |
-          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt" -o hagezi_normal.txt
-          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.plus.txt" -o hagezi_pro.txt
+          # Langsung sedot versi Wildcard Light
+          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/light.txt" -o hagezi_light.txt
 
-          echo "Normal: $(wc -l < hagezi_normal.txt) lines"
-          echo "Pro: $(wc -l < hagezi_pro.txt) lines"
+          echo "Total baris dari Hagezi Wildcard Light: $(wc -l < hagezi_light.txt)"
 
-          # Bersihkan file dan format jadi "domain 0.0.0.0"
-          cat hagezi_normal.txt hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' | sort -u > cloaking_merged.txt
+          # Filter bersih-bersih dan format jadi "*.domain 0.0.0.0"
+          # (Hapus spasi kosong/komentar, lalu tempel 0.0.0.0 di belakangnya)
+          cat hagezi_light.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print $1" 0.0.0.0"}' | sort -u > cloaking.txt
 
-          # Cetak whitelist dari env ke file txt (sangat aman, tidak rawan error spasi)
-          echo "$WHITELIST" > whitelist.txt
+          # Buang file mentahan biar bersih
+          rm -f hagezi_light.txt
 
-          # AWK untuk filter whitelist (super cepat)
-          awk 'NR==FNR { if($1!="") white[$1]=1; next } !($1 in white)' whitelist.txt cloaking_merged.txt > cloaking.txt
-
-          rm -f hagezi_normal.txt hagezi_pro.txt whitelist.txt cloaking_merged.txt
-
-          echo "Total rules setelah filter: $(wc -l < cloaking.txt)"
+          echo "Total rules siap pakai: $(wc -l < cloaking.txt)"
 
       - name: Simpan ke Repo
         run: |
@@ -109,7 +41,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Tidak ada update rule baru, skip push."
           else
-            git commit -m "Auto-update: Hagezi Normal + Pro.Plus $(date +'%Y-%m-%d')"
+            git commit -m "Auto-update: Hagezi Multi Light Wildcard $(date +'%Y-%m-%d')"
             git push
           fi
           
