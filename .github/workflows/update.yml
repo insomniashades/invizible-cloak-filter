@@ -5,6 +5,10 @@ on:
     - cron: '0 0 * * 0'
   workflow_dispatch:
 
+# Tambahan wajib: Izin supaya bot bisa nge-push hasil update ke repo
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -13,58 +17,41 @@ jobs:
 
       - name: Tarik Hagezi Normal + Pro
         run: |
-          curl -sL --fail \
-            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt" \
-            -o hagezi_normal.txt
+          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt" -o hagezi_normal.txt
+          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.plus.txt" -o hagezi_pro.txt
 
-          curl -sL --fail \
-            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt" \
-            -o hagezi_pro.txt
+          echo "Normal: $(wc -l < hagezi_normal.txt) lines"
+          echo "Pro: $(wc -l < hagezi_pro.txt) lines"
 
-          cat hagezi_normal.txt hagezi_pro.txt \
-            | grep -v '^#' \
-            | grep -v '^\s*$' \
-            | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' \
-            | sort -u \
-            > cloaking_merged.txt
+          # Bersihkan file dan format jadi "domain 0.0.0.0"
+          cat hagezi_normal.txt hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' | sort -u > cloaking_merged.txt
 
-          cat <<'EOF' > whitelist.txt
-          # IDX & static
+          # Bikin whitelist (Pastikan mulai dari idx.co.id sampai EOF nempel di ujung kiri tanpa spasi)
+          cat << 'EOF' > whitelist.txt
           idx.co.id
           www.idx.co.id
           static.idx.co.id
           assets.idx.co.id
-
-          # Bank BCA
           bca.co.id
           klikbca.com
           m.klikbca.com
           api.klikbca.com
           mybca.bca.co.id
-          ocw.bca.co.id
-
-          # Bank Jago
           jago.com
           www.jago.com
           api.jago.com
           app.jago.com
           cdn.jago.com
-
-          # GoPay & Gojek
           gojek.com
           www.gojek.com
           api.gojek.com
           gopay.co.id
           www.gopay.co.id
           api.gopay.co.id
-          gopay-id.com
           goapi.go-jek.com
           api.go-jek.com
           static.gojek.com
           cdn.gojek.com
-          pa.gojek.com
-
-          # Stockbit
           stockbit.com
           www.stockbit.com
           api.stockbit.com
@@ -72,69 +59,54 @@ jobs:
           cdn.stockbit.com
           app.stockbit.com
           stream.stockbit.com
-
-          # Bibit
           bibit.id
           www.bibit.id
           api.bibit.id
           cdn.bibit.id
           static.bibit.id
-          app.bibit.id
-
-          # Tokopedia
           tokopedia.com
           www.tokopedia.com
           api.tokopedia.com
-          ta.tokopedia.com
           images.tokopedia.net
           tokopedia.net
           tokopedia-static.net
-
-          # Mi Shop / Xiaomi
           mishop.id
           www.mishop.id
           mi.com
           global.mi.com
           buy.mi.com
           shop.mi.com
-          static.mi.com
-          i01.appmifile.com
-          i02.appmifile.com
-
-          # IPOT
           ipot.co.id
           www.ipot.co.id
-          api.ipot.co.id
-
-          # KSEI
           ksei.co.id
-          www.ksei.co.id
-
-          # Common CDN
           jsdelivr.net
           unpkg.com
           cdnjs.cloudflare.com
           akamaized.net
           fastly.net
           cloudfront.net
-          EOF
+EOF
 
-          grep -v '^\s*#' whitelist.txt \
-            | grep -v '^\s*$' \
-            | sed 's/^[[:space:]]*//' \
-            | while read domain; do
-                sed -i "/^${domain} /d" cloaking_merged.txt
-              done
+          # Logika AWK yang lebih cepat: 
+          # Baca whitelist dulu, simpan di memori, lalu print baris di cloaking_merged yang domainnya tidak ada di whitelist.
+          # AWK akan jalan hitungan detik dibanding sed di dalam loop yang bisa bermenit-menit.
+          awk '{ gsub(/^[ \t]+|[ \t]+$/, ""); if ($0 == "") next } NR==FNR { white[$1]=1; next } !($1 in white)' whitelist.txt cloaking_merged.txt > cloaking.txt
 
-          mv cloaking_merged.txt cloaking.txt
-          rm -f hagezi_normal.txt hagezi_pro.txt whitelist.txt
+          rm -f hagezi_normal.txt hagezi_pro.txt whitelist.txt cloaking_merged.txt
 
-          echo "Total rules: $(wc -l < cloaking.txt)"
+          echo "Total rules setelah filter: $(wc -l < cloaking.txt)"
 
       - name: Simpan ke Repo
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
-          git commit -m "Auto-update: Hagezi Normal + Pro $(date +'%Y-%m-%d')" || exit 0
-          git push
+          
+          # Pengecekan aman, kalau nggak ada perubahan dari sebelumnya, nggak perlu ngotot commit
+          if git diff --staged --quiet; then
+            echo "Tidak ada update rule baru, skip push."
+          else
+            git commit -m "Auto-update: Hagezi Normal + Pro.Plus $(date +'%Y-%m-%d')"
+            git push
+          fi
+          
