@@ -11,30 +11,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tarik Hagezi Normal + OISD Basic
+      - name: Tarik Hagezi Normal + Pro
         run: |
-          # Hagezi Normal — moderat, tidak blok CDN/static umum
           curl -sL --fail \
             "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt" \
-            -o hagezi.txt
+            -o hagezi_normal.txt
 
-          # OISD Basic — well-curated, jarang false positive
           curl -sL --fail \
-            "https://raw.githubusercontent.com/nicehash/oisdbasic/main/dnsmasq.txt" \
-            -o oisd.txt || \
-          curl -sL --fail \
-            "https://oisd.nl/downloads/basic/dnsmasq" \
-            -o oisd.txt
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/pro.txt" \
+            -o hagezi_pro.txt
 
-          # Merge, filter komentar, deduplikasi, format cloaking
-          cat hagezi.txt oisd.txt \
+          cat hagezi_normal.txt hagezi_pro.txt \
             | grep -v '^#' \
             | grep -v '^\s*$' \
             | awk '{sub(/\r$/, ""); gsub(/^0\.0\.0\.0 /, ""); gsub(/^127\.0\.0\.1 /, ""); print $1" 0.0.0.0"}' \
             | sort -u \
             > cloaking_merged.txt
 
-          # Whitelist — domain IDX & broker yg sering false positive
           cat <<'EOF' > whitelist.txt
           # IDX & static
           idx.co.id
@@ -108,7 +101,16 @@ jobs:
           i01.appmifile.com
           i02.appmifile.com
 
-          # Common CDN yang sering kena false positive
+          # IPOT
+          ipot.co.id
+          www.ipot.co.id
+          api.ipot.co.id
+
+          # KSEI
+          ksei.co.id
+          www.ksei.co.id
+
+          # Common CDN
           jsdelivr.net
           unpkg.com
           cdnjs.cloudflare.com
@@ -116,13 +118,16 @@ jobs:
           fastly.net
           cloudfront.net
           EOF
-          # Apply whitelist — hapus domain yang ada di whitelist
-          grep -v '^\s*#' whitelist.txt | grep -v '^\s*$' | while read domain; do
-            sed -i "/^${domain} /d" cloaking_merged.txt
-          done
+
+          grep -v '^\s*#' whitelist.txt \
+            | grep -v '^\s*$' \
+            | sed 's/^[[:space:]]*//' \
+            | while read domain; do
+                sed -i "/^${domain} /d" cloaking_merged.txt
+              done
 
           mv cloaking_merged.txt cloaking.txt
-          rm -f hagezi.txt oisd.txt
+          rm -f hagezi_normal.txt hagezi_pro.txt whitelist.txt
 
           echo "Total rules: $(wc -l < cloaking.txt)"
 
@@ -131,5 +136,5 @@ jobs:
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add cloaking.txt
-          git commit -m "Auto-update: Hagezi Normal + OISD Basic $(date +'%Y-%m-%d')" || exit 0
+          git commit -m "Auto-update: Hagezi Normal + Pro $(date +'%Y-%m-%d')" || exit 0
           git push
