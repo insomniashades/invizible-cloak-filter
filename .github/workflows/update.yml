@@ -1,53 +1,71 @@
-name: Update Cloaking Rules (Hagezi Pro Wildcard)
+name: Update HaGeZi Multi Normal Filter
 
 on:
   schedule:
-    - cron: '0 0 * * 0'
-  workflow_dispatch:
+    # Jalan otomatis tiap jam 03:00 UTC (Jam 10:00 WIB pagi)
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Tombol manual trigger di tab GitHub Actions
 
+# Permission wajib supaya bot GitHub Actions punya izin push commit ke repo
 permissions:
   contents: write
 
 jobs:
-  build:
+  update-filter:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: Hagezi-Multi-Normal # Kunci ke branch Hagezi-Multi-Normal
 
-      - name: Tarik Hagezi Pro (Native Wildcard)
+      - name: Fetch and Format HaGeZi Multi Normal List
         run: |
-          echo "Menarik list Hagezi Pro versi Wildcard asli..."
-          # Jalur 1: Ambil langsung dari folder 'wildcard' di repo Hagezi
-          curl -sL "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/pro.txt" -o hagezi_pro.txt
-
-          # Pengecekan Logis: Kalau filenya error 404, kosong, atau isinya kedikitan, ganti jalur!
-          if grep -iq "^404" hagezi_pro.txt || [ ! -s hagezi_pro.txt ] || [ $(wc -l < hagezi_pro.txt) -lt 1000 ]; then
-            echo "Jalur utama bermasalah. Beralih ke CDN jsDelivr..."
-            curl -sL "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/pro.txt" -o hagezi_pro.txt
-          fi
-
-          echo "Total baris mentahan yang berhasil ditarik: $(wc -l < hagezi_pro.txt)"
-
-          # Filter dan format
-          # Karena Hagezi udah ngasih format "*.domain.com", kita tinggal buang baris komentar dan nambahin " 0.0.0.0" di belakangnya
-          cat hagezi_pro.txt | grep -v '^#' | grep -v '^\s*$' | awk '{sub(/\r$/, ""); print $1" 0.0.0.0"}' | sort -u > cloaking.txt
-
-          # Buang file mentahan
-          rm -f hagezi_pro.txt
-
-          echo "Total rules siap pakai: $(wc -l < cloaking.txt)"
-
-      - name: Simpan ke Repo
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git add cloaking.txt
+          echo "==== START FETCHING HAGEZI MULTI NORMAL ===="
           
+          # URL Source Wildcard HaGeZi Multi Normal
+          SOURCE_URL="https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/normal.txt"
+          
+          # Tentukan nama file hasil akhir di repo lu (Sesuaikan jika nama filenya beda)
+          OUTPUT_FILE="hagezi-normal-cloak.txt"
+          
+          # 1. Unduh list mentah dari HaGeZi
+          curl -sSL "$SOURCE_URL" -o raw_hagezi.txt
+
+          # 2. Bikin Header Rapi dengan Timestamp UTC
+          cat <<EOF > "$OUTPUT_FILE"
+          # =========================================================
+          # HaGeZi Multi Normal - Cloaking Filter for InviZible Pro
+          # Updated on : $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          # Source     : https://github.com/hagezi/dns-blocklists
+          # Format     : DNSCrypt Cloaking Rules (<domain> 0.0.0.0)
+          # =========================================================
+
+          EOF
+
+          # 3. Parsing & Formatting:
+          # - /^[^\#]/ : Abaikan baris komentar (#)
+          # - NF       : Abaikan baris kosong
+          # - Transformasi baris jadi: "<domain/wildcard> 0.0.0.0"
+          awk '/^[^\#]/ && NF { print $1 " 0.0.0.0" }' raw_hagezi.txt >> "$OUTPUT_FILE"
+
+          # 4. Bersihin file temporary
+          rm raw_hagezi.txt
+          echo "==== FORMATTING COMPLETE: Saved to $OUTPUT_FILE ===="
+
+      - name: Commit and Push Changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+
+          git add .
+
+          # Cek perubahan biar gak spamming commit kosong kalau isi list belum berubah dari upstream
           if git diff --staged --quiet; then
-            echo "Tidak ada update rule baru, skip push."
+            echo "Kagak ada perubahan dari upstream HaGeZi. Skip commit!"
           else
-            git commit -m "Auto-update: Hagezi Pro Wildcard Cloaking $(date +'%Y-%m-%d')"
-            git push
+            git commit -m "build(filter): auto-update HaGeZi Multi Normal [$(date -u +'%Y-%m-%d %H:%M UTC')]"
+            git push origin Hagezi-Multi-Normal
           fi
           
