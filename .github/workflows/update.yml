@@ -1,7 +1,9 @@
 name: Update HaGeZi Multi Normal Filter
+
 on:
   schedule:
-    - cron: '0 3 * * 1'
+    # Jalan otomatis tiap 3 hari sekali jam 03:00 UTC (10:00 WIB)
+    - cron: '0 3 */3 * *'
   workflow_dispatch:
 
 permissions:
@@ -23,17 +25,16 @@ jobs:
           
           OUTPUT_FILE="hagezi-normal-cloak.txt"
           
-          # Daftar URL Primary & Mirror CDN Terpercaya (jsDelivr)
+          # URL Utama & Mirror (Pake multi.txt bukan normal.txt)
           URLS=(
-            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/normal.txt"
-            "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/normal.txt"
-            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/normal.txt"
-            "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/domains/normal.txt"
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/wildcard/multi.txt"
+            "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/wildcard/multi.txt"
+            "https://raw.githubusercontent.com/hagezi/dns-blocklists/main/domains/multi.txt"
+            "https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@main/domains/multi.txt"
           )
           
           DOWNLOAD_SUCCESS=false
           
-          # Loop buat nyoba tiap URL sampai ada yang berhasil
           for URL in "${URLS[@]}"; do
             echo "Nge-fetch dari: $URL"
             if curl -sSLf --connect-timeout 10 --max-time 30 "$URL" -o raw_hagezi.txt && [ -s raw_hagezi.txt ]; then
@@ -41,7 +42,7 @@ jobs:
               DOWNLOAD_SUCCESS=true
               break
             else
-              echo "WARNING: Gagal atau file kosong dari $URL, nyoba mirror berikutnya..."
+              echo "WARNING: Gagal/file kosong dari $URL, nyoba mirror berikutnya..."
             fi
           done
           
@@ -50,7 +51,7 @@ jobs:
             exit 1
           fi
 
-          # Bikin Header Rapi dengan Timestamp UTC
+          # Bikin Header Rapi
           cat <<EOF > "$OUTPUT_FILE"
           # =========================================================
           # HaGeZi Multi Normal - Cloaking Filter for InviZible Pro
@@ -61,7 +62,7 @@ jobs:
 
           EOF
 
-          # Parsing & Formatting
+          # Parsing & Formatting ke Cloaking
           awk '/^[^\#]/ && NF && !/404:/ { print $1 " 0.0.0.0" }' raw_hagezi.txt >> "$OUTPUT_FILE"
 
           rm raw_hagezi.txt
@@ -74,40 +75,6 @@ jobs:
 
           git add .
 
-          if git diff --staged --quiet; then
-            echo "Kagak ada perubahan dari upstream HaGeZi. Skip commit!"
-          else
-            git commit -m "build(filter): auto-update HaGeZi Multi Normal [$(date -u +'%Y-%m-%d %H:%M UTC')]"
-            git push origin Hagezi-Multi-Normal
-          fi
-          cat <<EOF > "$OUTPUT_FILE"
-          # =========================================================
-          # HaGeZi Multi Normal - Cloaking Filter for InviZible Pro
-          # Updated on : $(date -u +'%Y-%m-%d %H:%M:%S UTC')
-          # Source     : https://github.com/hagezi/dns-blocklists
-          # Format     : DNSCrypt Cloaking Rules (<domain> 0.0.0.0)
-          # =========================================================
-
-          EOF
-
-          # 3. Parsing & Formatting:
-          # - /^[^\#]/ : Abaikan baris komentar (#)
-          # - NF       : Abaikan baris kosong
-          # - Transformasi baris jadi: "<domain/wildcard> 0.0.0.0"
-          awk '/^[^\#]/ && NF { print $1 " 0.0.0.0" }' raw_hagezi.txt >> "$OUTPUT_FILE"
-
-          # 4. Bersihin file temporary
-          rm raw_hagezi.txt
-          echo "==== FORMATTING COMPLETE: Saved to $OUTPUT_FILE ===="
-
-      - name: Commit and Push Changes
-        run: |
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-
-          git add .
-
-          # Cek perubahan biar gak spamming commit kosong kalau isi list belum berubah dari upstream
           if git diff --staged --quiet; then
             echo "Kagak ada perubahan dari upstream HaGeZi. Skip commit!"
           else
