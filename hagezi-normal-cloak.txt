@@ -1,6 +1,6 @@
 # =========================================================
 # HaGeZi Multi Normal - Cloaking Filter for InviZible Pro
-# Updated on : 2026-08-31 17:14:27 UTC
+# Updated on : 2026-09-01 08:03:16 UTC
 # Source     : https://github.com/hagezi/dns-blocklists
 # Format     : DNSCrypt Cloaking Rules (<domain> 0.0.0.0)
 # =========================================================
